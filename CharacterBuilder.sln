@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28010.2046
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CharacterBuilder", "CharacterBuilder\CharacterBuilder.csproj", "{CA91D640-25F6-4381-9F53-6E2690A09097}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Install Debug|Any CPU = Install Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CA91D640-25F6-4381-9F53-6E2690A09097}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA91D640-25F6-4381-9F53-6E2690A09097}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA91D640-25F6-4381-9F53-6E2690A09097}.Install Debug|Any CPU.ActiveCfg = Install Debug|Any CPU
+		{CA91D640-25F6-4381-9F53-6E2690A09097}.Install Debug|Any CPU.Build.0 = Install Debug|Any CPU
+		{CA91D640-25F6-4381-9F53-6E2690A09097}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA91D640-25F6-4381-9F53-6E2690A09097}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3D0620E0-D0BD-4B95-A9BD-D1978F6BB6D8}
+	EndGlobalSection
+EndGlobal

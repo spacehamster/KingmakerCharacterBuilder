@@ -22,7 +22,7 @@ namespace CharacterBuilder
                     if (!Main.enabled) return true;
                     if (Main.settings.DisableRemovePlanOnChange)
                     {
-                        Traverse.Create(__instance).Method("OnSelectNewItem").GetValue(new object[] { DialogMessageBox.BoxButton.Yes });
+                        Traverse.Create(__instance).Method("OnSelectNewItem", new object[] { DialogMessageBox.BoxButton.Yes }).GetValue();
                         return false;
                     }
                 }
@@ -43,7 +43,7 @@ namespace CharacterBuilder
                     if (!Main.enabled) return true;
                     if (Main.settings.DisableRemovePlanOnChange)
                     {
-                        Traverse.Create(__instance).Method("OnSelectNewItem").GetValue(new object[] { DialogMessageBox.BoxButton.Yes });
+                        Traverse.Create(__instance).Method("OnSelectNewItem", new object[] { DialogMessageBox.BoxButton.Yes }).GetValue();
                         return false;
                     }
                 }
@@ -64,7 +64,7 @@ namespace CharacterBuilder
                     if (!Main.enabled) return true;
                     if (Main.settings.DisableRemovePlanOnChange)
                     {
-                        Traverse.Create(__instance).Method("OnSelectNewItem").GetValue(new object[] { DialogMessageBox.BoxButton.Yes });
+                        Traverse.Create(__instance).Method("OnSelectNewItem", new object[] { DialogMessageBox.BoxButton.Yes }).GetValue();
                         return false;
                     }
                 }

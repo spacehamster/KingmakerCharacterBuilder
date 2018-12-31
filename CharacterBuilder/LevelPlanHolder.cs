@@ -3,6 +3,7 @@ using System.Linq;
 using Kingmaker;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes;
+using Kingmaker.Blueprints.Root;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.UnitLogic;
 using Kingmaker.UnitLogic.Class.LevelUp;
@@ -27,25 +28,36 @@ namespace CharacterBuilder
         /*
          * Create a level plan from BlueprintCharacterClass' defaultBuild
          * Refer AddClassLevels.LevelUp and LevelController.ApplyStatsDistributionPreset
+         * LevelUpController.SelectDefaultClassBuild
          * 
+         * AddClassLevels and StatsDistributionPreset are both components of 
+         * BlueprintCharacterClass.DefaultBuild
          */
         public LevelPlanHolder(BlueprintCharacterClass defaultClass)
         {
             var defaultBuild = defaultClass.DefaultBuild;
             var addClassLevels = defaultBuild.GetComponent<AddClassLevels>();
-            var stats = defaultBuild.GetComponent<StatsDistributionPreset>();
+            var targetPoints = Main.settings.DefaultPointBuy25 ? 25 : 20;
+            var stats = defaultBuild.GetComponents<StatsDistributionPreset>().FirstOrDefault(sd => sd.TargetPoints == targetPoints);
 
 
-            var unitEntityData = new UnitEntityData(GameConsts.DefaultUnitUniqueId, false, Game.Instance.BlueprintRoot.SystemMechanics.DefaultUnit);
-            var levelUpController = LevelUpController.Start(unitEntityData.Descriptor, true);
+            var unit = Main.settings.DefaultPointBuy25 ?
+                Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.DefaultPlayerCharacter) :
+                Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.CustomCompanion);
+            var levelUpController = LevelUpController.Start(unit.Descriptor, true);
             levelUpController.SelectPortrait(Game.Instance.BlueprintRoot.CharGen.Portraits[0]);
             levelUpController.SelectGender(Gender.Male);
             levelUpController.SelectRace(Game.Instance.BlueprintRoot.Progression.CharacterRaces[0]);
+            if (levelUpController.State.CanSelectRaceStat)
+            {
+                levelUpController.SelectRaceStat(addClassLevels.RaceStat);
+            }
+            levelUpController.ApplyStatsDistributionPreset(stats);
             levelUpController.SelectClass(defaultClass);
             levelUpController.SelectDefaultClassBuild();
             for (int i = 0; i < 20; i++)
             {
-                var plan = unitEntityData.Descriptor.Progression.GetLevelPlan(i + 1);
+                var plan = unit.Descriptor.Progression.GetLevelPlan(i + 1);
                 LevelPlanData[i] = plan;
             }
             LevelPlanData[0] = levelUpController.GetPlan();
@@ -125,17 +137,20 @@ namespace CharacterBuilder
         /*
          * Refer AddClassLevels.LevelUp and Player.CreateCustomCompanion
          */
-        public UnitDescriptor CreateUnit(int level)
+        public UnitEntityData CreateUnit(int level)
         {
+
             //var playerUnit = ResourcesLibrary.TryGetBlueprint<BlueprintUnit>("4391e8b9afbb0cf43aeba700c089f56d");
             //var unit = new UnitDescriptor(playerUnit, null);
-            var unitEntityData = new UnitEntityData(GameConsts.DefaultUnitUniqueId, false, Game.Instance.BlueprintRoot.SystemMechanics.DefaultUnit);
-            ApplyLevelPlan(unitEntityData.Descriptor);
+            var unit = Main.settings.DefaultPointBuy25 ?
+                Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.DefaultPlayerCharacter) :
+                Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.CustomCompanion);
+            ApplyLevelPlan(unit.Descriptor);
             for (int i = 0; i < level; i++)
             {
-                var levelUpController = LevelUpController.Start(unitEntityData.Descriptor, true);
+                var levelUpController = LevelUpController.Start(unit.Descriptor, true);
             }
-            return unitEntityData.Descriptor;
+            return unit;
         }
     }
 }

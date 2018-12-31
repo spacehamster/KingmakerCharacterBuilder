@@ -12,6 +12,7 @@ namespace CharacterBuilder
         public bool DefaultPointBuy25 = true;
         public bool AutoSelectSkills = false;
         public bool DisableRemovePlanOnChange = false;
+        public bool ShowDollRoom = false;
         public override void Save(UnityModManager.ModEntry modEntry)
         {
             Save(this, modEntry);

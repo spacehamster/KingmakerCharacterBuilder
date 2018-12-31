@@ -2,10 +2,12 @@
 using Kingmaker;
 using Kingmaker.Assets.UI.LevelUp;
 using Kingmaker.Blueprints;
+using Kingmaker.EntitySystem.Entities;
 using Kingmaker.EntitySystem.Persistence.JsonUtility;
 using Kingmaker.UI;
 using Kingmaker.UI.LevelUp;
 using Kingmaker.UI.LevelUp.Phase;
+using Kingmaker.UI.ServiceWindow;
 using Kingmaker.UnitLogic.Class.LevelUp;
 using Newtonsoft.Json.Linq;
 using System;
@@ -111,11 +113,26 @@ namespace CharacterBuilder
                 m_LevelPlanFiles = value;
             }
         }
+        static void ShowDollRoom(UnitEntityData unit)
+        {
+            var dollRoom = Game.Instance.UI.Common.DollRoom;
+            if (dollRoom != null)
+            {
+                CharGenDollRoom component = Game.Instance.UI.Common.DollRoom.GetComponent<CharGenDollRoom>();
+                if (component)
+                {
+                    component.CreateDolls();
+                }
+                dollRoom.SetUnit(unit);
+                dollRoom.Show(true);
+            }
+        }
         public static void EditLevelPlan(LevelPlanHolder levelPlanHolder, int level)
         {
             var unit = levelPlanHolder.CreateUnit(level);
+            if(Main.settings.ShowDollRoom) ShowDollRoom(unit);
             CharacterBuildController characterBuildController = Game.Instance.UI.CharacterBuildController;
-            CurrentLevelUpController = LevelUpController.Start(unit, false, null, false, null);
+            CurrentLevelUpController = LevelUpController.Start(unit.Descriptor, false, null, false, null);
             CurrentLevelUpController.SelectPortrait(Game.Instance.BlueprintRoot.CharGen.Portraits[0]);
             CurrentLevelUpController.SelectGender(Gender.Male);
             CurrentLevelUpController.SelectRace(Game.Instance.BlueprintRoot.Progression.CharacterRaces[0]);
@@ -139,6 +156,9 @@ namespace CharacterBuilder
             Traverse.Create(characterBuildController).Field("Unit").SetValue(unit);
             characterBuildController.Show(true);
         }
+        /*
+         * 
+         */ 
         static void OnCreatingPlan()
         {
             GUILayout.Label("Create New Plan");
@@ -150,7 +170,7 @@ namespace CharacterBuilder
             if (Game.Instance.Player.MainCharacter.Value != null)
             {
                 GUILayout.Label("Copy From Unit");
-                foreach (var unitRefrence in Game.Instance.Player.PartyCharacters.Concat(Game.Instance.Player.PartyCharacters))
+                foreach (var unitRefrence in Game.Instance.Player.PartyCharacters.Concat(Game.Instance.Player.RemoteCompanions))
                 {
                     var unit = unitRefrence.Value;
                     if (GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth)))
@@ -171,6 +191,51 @@ namespace CharacterBuilder
                     CurrentLevelPlan.Name = characterClass.Name;
                     m_UIState = UIState.Default;
                 }
+            }
+            GUILayout.Label("ActiveCompanions");
+            foreach (var unit in Game.Instance.Player.ActiveCompanions)
+            {
+                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
+            }
+            GUILayout.Label("AllCharacters");
+            foreach (var unit in Game.Instance.Player.AllCharacters)
+            {
+                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
+            }
+            GUILayout.Label("AllCrossSceneUnits");
+            foreach (var unit in Game.Instance.Player.AllCrossSceneUnits)
+            {
+                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
+            }
+            GUILayout.Label("ControllableCharacters");
+            foreach (var unit in Game.Instance.Player.ControllableCharacters)
+            {
+                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
+            }
+            GUILayout.Label("DetachedPartyCharacters");
+            foreach (var unit in Game.Instance.Player.DetachedPartyCharacters)
+            {
+                GUILayout.Button(unit.Value.CharacterName, GUILayout.Width(DefaultLabelWidth));
+            }
+            GUILayout.Label("ExCompanions");
+            foreach (var unit in Game.Instance.Player.ExCompanions)
+            {
+                GUILayout.Button(unit.Value.CharacterName, GUILayout.Width(DefaultLabelWidth));
+            }
+            GUILayout.Label("Party");
+            foreach (var unit in Game.Instance.Player.Party)
+            {
+                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
+            }
+            GUILayout.Label("PartyCharacters");
+            foreach (var unit in Game.Instance.Player.PartyCharacters)
+            {
+                GUILayout.Button(unit.Value.CharacterName, GUILayout.Width(DefaultLabelWidth));
+            }
+            GUILayout.Label("RemoteCompanions");
+            foreach (var unit in Game.Instance.Player.RemoteCompanions)
+            {
+                GUILayout.Button(unit.Value.CharacterName, GUILayout.Width(DefaultLabelWidth));
             }
         }
         static void OnManagingFiles()
@@ -200,6 +265,7 @@ namespace CharacterBuilder
             GUILayout.EndHorizontal();
             Main.settings.DisableRemovePlanOnChange = GUILayout.Toggle(Main.settings.DisableRemovePlanOnChange, " Disable Removing level plan on change");
             Main.settings.AutoSelectSkills = GUILayout.Toggle(Main.settings.AutoSelectSkills, " Auto select skills");
+            Main.settings.ShowDollRoom = GUILayout.Toggle(Main.settings.ShowDollRoom, " Show DollRoom");
         }
         static void OnDefaultGUI()
         {

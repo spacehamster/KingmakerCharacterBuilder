@@ -4,7 +4,7 @@
   "Author": "spacehamster",
   "Version": "1.4.4",
   "ManagerVersion": "0.12.0",
-  "Requirements": [],
+  "Requirements": ["Respec"],
   "AssemblyName": "CharacterBuilder.dll",
   "EntryMethod": "CharacterBuilder.Main.Load",
   "HomePage": "https://github.com/spacehamster/KingmakerVisualAdjustmentsMod",

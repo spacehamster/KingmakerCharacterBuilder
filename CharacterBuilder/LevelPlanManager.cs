@@ -80,6 +80,22 @@ namespace CharacterBuilder
                 CurrentLevelUpController = null;
             }
         }
+        /*[HarmonyPatch(typeof(CharacterBuildController), "BadPatch")]
+        static class CharacterBuildController_BadPatch_Patch
+        {
+            static bool Prefix(CharacterBuildController __instance)
+            {
+                return true;
+            }
+        }*/
+        [HarmonyPatch(typeof(CharacterBuildController), "OnShow")]
+        static class CharacterBuildController_Onshow_Patch
+        {
+            static bool Prefix(CharacterBuildController __instance)
+            {
+                return true;
+            }
+        }
         enum UIState
         {
             Default,
@@ -132,7 +148,12 @@ namespace CharacterBuilder
             var unit = levelPlanHolder.CreateUnit(level);
             if(Main.settings.ShowDollRoom) ShowDollRoom(unit);
             CharacterBuildController characterBuildController = Game.Instance.UI.CharacterBuildController;
-            CurrentLevelUpController = LevelUpController.Start(unit.Descriptor, false, null, false, null);
+            CurrentLevelUpController = LevelUpController.Start(
+                unit: unit.Descriptor, 
+                instantCommit: false, 
+                unitJson:null, 
+                onSuccess: null, 
+                mode: LevelUpState.CharBuildMode.PreGen);
             CurrentLevelUpController.SelectPortrait(Game.Instance.BlueprintRoot.CharGen.Portraits[0]);
             CurrentLevelUpController.SelectGender(Gender.Male);
             CurrentLevelUpController.SelectRace(Game.Instance.BlueprintRoot.Progression.CharacterRaces[0]);
@@ -140,7 +161,7 @@ namespace CharacterBuilder
             CurrentLevelUpController.SelectVoice(Game.Instance.BlueprintRoot.CharGen.MaleVoices[0]);
             CurrentLevelUpController.SelectName("LevelPlan");
             Traverse.Create(characterBuildController).Property<LevelUpController>("LevelUpController").Value = CurrentLevelUpController;
-            Traverse.Create(characterBuildController).Field("m_IsChargen").SetValue(CurrentLevelUpController.State.IsCharGen);
+            Traverse.Create(characterBuildController).Field("Mode").SetValue(CurrentLevelUpController.State.Mode);
             Traverse.Create(characterBuildController).Field("Unit").SetValue(unit);
             characterBuildController.Show(true);
         }
@@ -150,9 +171,14 @@ namespace CharacterBuilder
             var unitJson = UnitSerialization.Serialize(unit);
             CharacterBuildController characterBuildController = Game.Instance.UI.CharacterBuildController;
 
-            CurrentLevelUpController = LevelUpController.Start(unit, false, unitJson, false, null);
+            CurrentLevelUpController = LevelUpController.Start(
+                unit: unit,
+                instantCommit: false,
+                unitJson: unitJson,
+                onSuccess: null,
+                mode: LevelUpState.CharBuildMode.PreGen);
             Traverse.Create(characterBuildController).Property<LevelUpController>("LevelUpController").Value = CurrentLevelUpController;
-            Traverse.Create(characterBuildController).Field("m_IsChargen").SetValue(CurrentLevelUpController.State.IsCharGen);
+            Traverse.Create(characterBuildController).Field("Mode").SetValue(CurrentLevelUpController.State.Mode);
             Traverse.Create(characterBuildController).Field("Unit").SetValue(unit);
             characterBuildController.Show(true);
         }
@@ -191,51 +217,6 @@ namespace CharacterBuilder
                     CurrentLevelPlan.Name = characterClass.Name;
                     m_UIState = UIState.Default;
                 }
-            }
-            GUILayout.Label("ActiveCompanions");
-            foreach (var unit in Game.Instance.Player.ActiveCompanions)
-            {
-                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
-            }
-            GUILayout.Label("AllCharacters");
-            foreach (var unit in Game.Instance.Player.AllCharacters)
-            {
-                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
-            }
-            GUILayout.Label("AllCrossSceneUnits");
-            foreach (var unit in Game.Instance.Player.AllCrossSceneUnits)
-            {
-                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
-            }
-            GUILayout.Label("ControllableCharacters");
-            foreach (var unit in Game.Instance.Player.ControllableCharacters)
-            {
-                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
-            }
-            GUILayout.Label("DetachedPartyCharacters");
-            foreach (var unit in Game.Instance.Player.DetachedPartyCharacters)
-            {
-                GUILayout.Button(unit.Value.CharacterName, GUILayout.Width(DefaultLabelWidth));
-            }
-            GUILayout.Label("ExCompanions");
-            foreach (var unit in Game.Instance.Player.ExCompanions)
-            {
-                GUILayout.Button(unit.Value.CharacterName, GUILayout.Width(DefaultLabelWidth));
-            }
-            GUILayout.Label("Party");
-            foreach (var unit in Game.Instance.Player.Party)
-            {
-                GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth));
-            }
-            GUILayout.Label("PartyCharacters");
-            foreach (var unit in Game.Instance.Player.PartyCharacters)
-            {
-                GUILayout.Button(unit.Value.CharacterName, GUILayout.Width(DefaultLabelWidth));
-            }
-            GUILayout.Label("RemoteCompanions");
-            foreach (var unit in Game.Instance.Player.RemoteCompanions)
-            {
-                GUILayout.Button(unit.Value.CharacterName, GUILayout.Width(DefaultLabelWidth));
             }
         }
         static void OnManagingFiles()
@@ -301,12 +282,11 @@ namespace CharacterBuilder
                 GUILayout.EndHorizontal();
                 if (IsSelectingUnit)
                 {
-                    foreach (var unit in Game.Instance.Player.ControllableCharacters)
+                    foreach (var unit in Game.Instance.Player.PartyCharacters.Concat(Game.Instance.Player.RemoteCompanions))
                     {
-                        if (unit.Descriptor.IsPet) continue;
-                        if (GUILayout.Button(unit.CharacterName))
+                        if (GUILayout.Button(unit.Value.CharacterName))
                         {
-                            CurrentLevelPlan.unit = unit.Descriptor;
+                            CurrentLevelPlan.unit = unit.Value.Descriptor;
                             CurrentLevelPlan.IsApplied = false;
                             IsSelectingUnit = false;
                         }
@@ -356,8 +336,8 @@ namespace CharacterBuilder
             var previewSource = Traverse.Create(typeof(LevelUpPreviewThread)).Field("s_Source").GetValue<JToken>();
             GUILayout.Label(string.Format("Controller State {0}, CBC.LUC {1}, AreEqual {2}, PreviewThread {3}, PreviewSource {4}",
                 CurrentLevelUpController != null,
-                Game.Instance.UI.CharacterBuildController.LevelUpController != null,
-                Game.Instance.UI.CharacterBuildController.LevelUpController == CurrentLevelUpController,
+                Game.Instance.UI.CharacterBuildController?.LevelUpController != null,
+                Game.Instance.UI.CharacterBuildController?.LevelUpController == CurrentLevelUpController,
                 previewThread != null,
                 previewSource != null));
             OnDefaultGUI();

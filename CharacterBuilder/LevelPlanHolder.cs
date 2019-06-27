@@ -28,7 +28,7 @@ namespace CharacterBuilder
         /*
          * Create a level plan from BlueprintCharacterClass' defaultBuild
          * Refer AddClassLevels.LevelUp and LevelController.ApplyStatsDistributionPreset
-         * LevelUpController.SelectDefaultClassBuild
+         * LevelUpController.SelectDefaultClassBuild and CharacterBuildController.LoadDefaultProgression
          * 
          * AddClassLevels and StatsDistributionPreset are both components of 
          * BlueprintCharacterClass.DefaultBuild

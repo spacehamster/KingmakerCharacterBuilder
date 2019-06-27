@@ -3,6 +3,7 @@ using Harmony12;
 using UnityModManagerNet;
 using System.Reflection;
 using System;
+using Kingmaker.UI.LevelUp;
 
 namespace CharacterBuilder
 {
@@ -21,21 +22,39 @@ namespace CharacterBuilder
         }
         public static bool enabled;
         public static Settings settings;
+        static void FixPatches(HarmonyInstance harmony)
+        {
+            var original = typeof(CharacterBuildController).GetMethod("OnShow", BindingFlags.Instance | BindingFlags.NonPublic);
+            if(original == null)
+            {
+                DebugLog("Can't find method CharacterBuildController.OnShow");
+                return;
+            }
+            var info = harmony.GetPatchInfo(original);
+            if (info == null) {
+                DebugLog("CharacterBuildController.OnShow is not patched!!!!");
+                return;
+            }
+            harmony.Unpatch(original, HarmonyPatchType.Prefix, "Respec");
+        }
+        static HarmonyInstance harmony;
         static bool Load(UnityModManager.ModEntry modEntry)
         {
             try
             {
                 logger = modEntry.Logger;
                 settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
-                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
+                harmony = HarmonyInstance.Create(modEntry.Info.Id);
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
+                FixPatches(harmony);
                 modEntry.OnToggle = OnToggle;
                 modEntry.OnGUI = OnGUI;
                 modEntry.OnSaveGUI = OnSaveGUI;
             }
             catch (Exception ex)
             {
-                DebugLog(ex.ToString() + "\n" + ex.StackTrace);
+                DebugError(ex);
+                throw;
             }
             return true;
         }
@@ -67,6 +86,7 @@ namespace CharacterBuilder
             } catch(Exception ex)
             {
                 DebugError(ex);
+                throw;
             }
         }
     }

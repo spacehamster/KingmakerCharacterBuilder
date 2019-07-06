@@ -28,7 +28,7 @@ namespace CharacterBuilder
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
                 return true;
             }
@@ -49,7 +49,7 @@ namespace CharacterBuilder
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
                 return true;
             }
@@ -70,7 +70,7 @@ namespace CharacterBuilder
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
                 return true;
             }

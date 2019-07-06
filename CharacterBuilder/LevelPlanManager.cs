@@ -34,7 +34,7 @@ namespace CharacterBuilder
                     }
                     if (__instance.LevelUpController != CurrentLevelUpController)
                     {
-                        Main.DebugLog("CharacterBuildController.Commit, not creating level up plan");
+                        Main.Log("CharacterBuildController.Commit, not creating level up plan");
                         return true;
                     }
                     /*
@@ -62,11 +62,11 @@ namespace CharacterBuilder
                     Traverse.Create(__instance).Field("m_IsChargen").SetValue(false);
                     __instance.Show(false);
                     __instance.Unit = null;
-                    Main.DebugLog("LevelUpController.Commit, creating level up plan");
+                    Main.Log("LevelUpController.Commit, creating level up plan");
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
                 return false;
@@ -101,7 +101,8 @@ namespace CharacterBuilder
             Default,
             CreatingPlan,
             ManagingFiles,
-            ManagingSettings
+            ManagingSettings,
+            Debug
         };
         const float DefaultLabelWidth = 200f;
         const float DefaultSliderWidth = 300f;
@@ -300,6 +301,23 @@ namespace CharacterBuilder
                 CurrentLevelPlan.ShowLevelPlan();
             }
         }
+        static void OnDebug()
+        {
+            var previewThread = Traverse.Create(typeof(LevelUpPreviewThread)).Field("s_Thread").GetValue<Thread>();
+            var previewSource = Traverse.Create(typeof(LevelUpPreviewThread)).Field("s_Source").GetValue<JToken>();
+            var controller = Game.Instance.UI.CharacterBuildController?.LevelUpController;
+            GUILayout.Label(string.Format("Controller State {0}, CBC.LUC {1}, AreEqual {2}, PreviewThread {3}, PreviewSource {4}",
+                CurrentLevelUpController != null,
+                Game.Instance.UI.CharacterBuildController?.LevelUpController != null,
+                Game.Instance.UI.CharacterBuildController?.LevelUpController == CurrentLevelUpController,
+                previewThread != null,
+                previewSource != null));
+            if (controller == null) return;
+            foreach(var action in controller.LevelUpActions)
+            {
+                GUILayout.Label(Util.MakeActionReadable(action));
+            }
+        }
         public static void OnGUI()
         {
             GUILayout.BeginHorizontal();
@@ -315,6 +333,10 @@ namespace CharacterBuilder
             if (GUILayout.Button("Settings"))
             {
                 m_UIState = m_UIState == UIState.ManagingSettings ? UIState.Default : UIState.ManagingSettings;
+            }
+            if (GUILayout.Button("Debug"))
+            {
+                m_UIState = m_UIState == UIState.ManagingSettings ? UIState.Default : UIState.Debug;
             }
             GUILayout.EndHorizontal();
             if (m_UIState == UIState.CreatingPlan)
@@ -332,14 +354,11 @@ namespace CharacterBuilder
                 OnManagingSettings();
                 return;
             }
-            var previewThread = Traverse.Create(typeof(LevelUpPreviewThread)).Field("s_Thread").GetValue<Thread>();
-            var previewSource = Traverse.Create(typeof(LevelUpPreviewThread)).Field("s_Source").GetValue<JToken>();
-            GUILayout.Label(string.Format("Controller State {0}, CBC.LUC {1}, AreEqual {2}, PreviewThread {3}, PreviewSource {4}",
-                CurrentLevelUpController != null,
-                Game.Instance.UI.CharacterBuildController?.LevelUpController != null,
-                Game.Instance.UI.CharacterBuildController?.LevelUpController == CurrentLevelUpController,
-                previewThread != null,
-                previewSource != null));
+            if (m_UIState == UIState.Debug)
+            {
+                OnDebug();
+                return;
+            }
             OnDefaultGUI();
         }
     }

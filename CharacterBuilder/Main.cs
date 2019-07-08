@@ -4,7 +4,11 @@ using UnityModManagerNet;
 using System.Reflection;
 using System;
 using Kingmaker.UI.LevelUp;
-
+using Kingmaker;
+using Kingmaker.Blueprints.Root;
+using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 namespace CharacterBuilder
 {
 #if DEBUG
@@ -52,7 +56,7 @@ namespace CharacterBuilder
             return true;
         }
 
-        private static bool Unload(UnityModManager.ModEntry modEntry)
+        static bool Unload(UnityModManager.ModEntry modEntry)
         {
             HarmonyInstance.Create(modEntry.Info.Id).UnpatchAll(modEntry.Info.Id);
             return true;
@@ -69,7 +73,6 @@ namespace CharacterBuilder
             return true; // Permit or not.
         }
         /*
-        * 
         * Refer 
         * CharacterBuildController
         * LevelUpController
@@ -82,11 +85,29 @@ namespace CharacterBuilder
             try
             {
                 if (!enabled) return;
-                LevelPlanManager.OnGUI();
+                if(GUILayout.Button("Test Levelup"))
+                {
+                    Test.TestLevelup();
+                }
+                if (GUILayout.Button("StartChargen(true)"))
+                {
+                    Game.NewGamePreset = BlueprintRoot.Instance.NewGamePreset;
+                    Traverse.Create(Game.Instance.UI.MainMenu).Field("m_ChargenUnit").SetValue(
+                        Traverse.Create(Game.Instance.UI.MainMenu).Field("m_DefaultChargenUnit").GetValue());
+                    Game.Instance.UI.MainMenu.StartChargen(true);
+                }
+                if (GUILayout.Button("StartChargen(false)"))
+                {
+                    Game.NewGamePreset = BlueprintRoot.Instance.NewGamePreset;
+                    Traverse.Create(Game.Instance.UI.MainMenu).Field("m_ChargenUnit").SetValue(
+                        Traverse.Create(Game.Instance.UI.MainMenu).Field("m_DefaultChargenUnit").GetValue());
+                    Game.Instance.UI.MainMenu.StartChargen(false);
+                }
+                CharacterBuilderGUI.OnGUI();
             } catch(Exception ex)
             {
                 Error(ex);
-                throw;
+                GUILayout.Label("Error rendering UI");
             }
         }
         static void FixPatches(HarmonyInstance harmony)

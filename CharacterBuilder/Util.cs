@@ -17,6 +17,7 @@ namespace CharacterBuilder
     class Util
     {
         public static GUIStyle DisabledButtonStyle;
+        public static GUIStyle BoldLabelStyle;
         static Util()
         {
             DisabledButtonStyle = new GUIStyle(GUI.skin.button);
@@ -24,6 +25,9 @@ namespace CharacterBuilder
             DisabledButtonStyle.focused = DisabledButtonStyle.active;
             DisabledButtonStyle.normal = DisabledButtonStyle.active;
             DisabledButtonStyle.hover = DisabledButtonStyle.active;
+
+            BoldLabelStyle = new GUIStyle(GUI.skin.label);
+            BoldLabelStyle.fontStyle = FontStyle.Bold;
         }
         private static List<BlueprintUnit> m_Companions;
         public static IList<BlueprintUnit> GetCompanionUnits()

@@ -2,6 +2,7 @@
 using Kingmaker;
 using Kingmaker.Assets.UI.LevelUp;
 using Kingmaker.Blueprints;
+using Kingmaker.Blueprints.Root;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.EntitySystem.Persistence.JsonUtility;
 using Kingmaker.UI;
@@ -9,6 +10,8 @@ using Kingmaker.UI.LevelUp;
 using Kingmaker.UI.LevelUp.Phase;
 using Kingmaker.UI.ServiceWindow;
 using Kingmaker.UnitLogic.Class.LevelUp;
+using Kingmaker.View;
+using Kingmaker.Visual.CharacterSystem;
 using Newtonsoft.Json.Linq;
 using System;
 using System.IO;
@@ -20,6 +23,10 @@ namespace CharacterBuilder
 {
     class LevelPlanManager
     {
+        /*
+         * Intercept CharacterBuildController and prevent the default 
+         * LevelUpComplete from been called, also finalize any level plans
+         */
         [HarmonyPatch(typeof(CharacterBuildController), "Commit")]
         static class CharacterBuildController_Commit_Patch
         {
@@ -67,7 +74,7 @@ namespace CharacterBuilder
                 catch (Exception ex)
                 {
                     Main.Error(ex);
-                    return true;
+                    return false;
                 }
                 return false;
             }
@@ -80,14 +87,6 @@ namespace CharacterBuilder
                 CurrentLevelUpController = null;
             }
         }
-        /*[HarmonyPatch(typeof(CharacterBuildController), "BadPatch")]
-        static class CharacterBuildController_BadPatch_Patch
-        {
-            static bool Prefix(CharacterBuildController __instance)
-            {
-                return true;
-            }
-        }*/
         [HarmonyPatch(typeof(CharacterBuildController), "OnShow")]
         static class CharacterBuildController_Onshow_Patch
         {
@@ -96,40 +95,8 @@ namespace CharacterBuilder
                 return true;
             }
         }
-        enum UIState
-        {
-            Default,
-            CreatingPlan,
-            ManagingFiles,
-            ManagingSettings,
-            Debug
-        };
-        const float DefaultLabelWidth = 200f;
-        const float DefaultSliderWidth = 300f;
-        public const string LevelPlanFolder = "mods/CharacterBuilder/LevelPlans";
         public static LevelPlanHolder CurrentLevelPlan;
-        static UIState m_UIState = UIState.Default;
-        public static bool IsSelectingUnit = false;
         public static LevelUpController CurrentLevelUpController = null;
-        private static string[] m_LevelPlanFiles;
-        public static string[] LevelPlanFiles
-        {
-            get
-            {
-                if (m_LevelPlanFiles == null)
-                {
-                    Directory.CreateDirectory(LevelPlanFolder);
-                    m_LevelPlanFiles = Directory.GetFiles(LevelPlanFolder)
-                        .Where(f => f.EndsWith(".json"))
-                        .ToArray();
-                }
-                return m_LevelPlanFiles;
-            }
-            set
-            {
-                m_LevelPlanFiles = value;
-            }
-        }
         static void ShowDollRoom(UnitEntityData unit)
         {
             var dollRoom = Game.Instance.UI.Common.DollRoom;
@@ -144,17 +111,23 @@ namespace CharacterBuilder
                 dollRoom.Show(true);
             }
         }
+        /*
+         * Uses the CharacterBuildController to edit level plans
+         * Refer MainMenu.StartChargen which sets up the state and then calls CharacterBuildController.HandleLevelUpStart
+         * 
+         */
         public static void EditLevelPlan(LevelPlanHolder levelPlanHolder, int level)
         {
             var unit = levelPlanHolder.CreateUnit(level);
             if(Main.settings.ShowDollRoom) ShowDollRoom(unit);
             CharacterBuildController characterBuildController = Game.Instance.UI.CharacterBuildController;
+            var mode = level == 1 ? LevelUpState.CharBuildMode.CharGen : LevelUpState.CharBuildMode.LevelUp;
             CurrentLevelUpController = LevelUpController.Start(
                 unit: unit.Descriptor, 
                 instantCommit: false, 
                 unitJson:null, 
                 onSuccess: null, 
-                mode: LevelUpState.CharBuildMode.PreGen);
+                mode: mode);
             CurrentLevelUpController.SelectPortrait(Game.Instance.BlueprintRoot.CharGen.Portraits[0]);
             CurrentLevelUpController.SelectGender(Gender.Male);
             CurrentLevelUpController.SelectRace(Game.Instance.BlueprintRoot.Progression.CharacterRaces[0]);
@@ -163,7 +136,7 @@ namespace CharacterBuilder
             CurrentLevelUpController.SelectName("LevelPlan");
             Traverse.Create(characterBuildController).Property<LevelUpController>("LevelUpController").Value = CurrentLevelUpController;
             Traverse.Create(characterBuildController).Field("Mode").SetValue(CurrentLevelUpController.State.Mode);
-            Traverse.Create(characterBuildController).Field("Unit").SetValue(unit);
+            Traverse.Create(characterBuildController).Field("Unit").SetValue(unit.Descriptor);
             characterBuildController.Show(true);
         }
         static void CreateLevelPlan()
@@ -182,184 +155,6 @@ namespace CharacterBuilder
             Traverse.Create(characterBuildController).Field("Mode").SetValue(CurrentLevelUpController.State.Mode);
             Traverse.Create(characterBuildController).Field("Unit").SetValue(unit);
             characterBuildController.Show(true);
-        }
-        /*
-         * 
-         */ 
-        static void OnCreatingPlan()
-        {
-            GUILayout.Label("Create New Plan");
-            if (GUILayout.Button("Blank", GUILayout.Width(DefaultLabelWidth)))
-            {
-                CurrentLevelPlan = new LevelPlanHolder();
-                m_UIState = UIState.Default;
-            }
-            if (Game.Instance.Player.MainCharacter.Value != null)
-            {
-                GUILayout.Label("Copy From Unit");
-                foreach (var unitRefrence in Game.Instance.Player.PartyCharacters.Concat(Game.Instance.Player.RemoteCompanions))
-                {
-                    var unit = unitRefrence.Value;
-                    if (GUILayout.Button(unit.CharacterName, GUILayout.Width(DefaultLabelWidth)))
-                    {
-                        CurrentLevelPlan = new LevelPlanHolder(unit.Descriptor);
-                        CurrentLevelPlan.Name = unit.CharacterName;
-                        m_UIState = UIState.Default;
-                    }
-                }
-            }
-            GUILayout.Label("Copy From Class");
-            foreach (var characterClass in Game.Instance.BlueprintRoot.Progression.CharacterClasses)
-            {
-                if (characterClass.DefaultBuild == null) continue;
-                if (GUILayout.Button(characterClass.Name, GUILayout.Width(DefaultLabelWidth)))
-                {
-                    CurrentLevelPlan = new LevelPlanHolder(characterClass);
-                    CurrentLevelPlan.Name = characterClass.Name;
-                    m_UIState = UIState.Default;
-                }
-            }
-        }
-        static void OnManagingFiles()
-        {
-            if (LevelPlanFiles.Length == 0)
-            {
-                GUILayout.Label("No level plans found");
-            }
-            foreach (var filepath in LevelPlanFiles)
-            {
-                GUILayout.BeginHorizontal();
-                GUILayout.Label(Path.GetFileNameWithoutExtension(filepath));
-                if (GUILayout.Button("Open", GUILayout.ExpandWidth(false)))
-                {
-                    CurrentLevelPlan = Util.LoadLevelingPlan(filepath);
-                    m_UIState = UIState.Default;
-                }
-                GUILayout.EndHorizontal();
-            }
-        }
-        static void OnManagingSettings()
-        {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Default Point Buy ", GUILayout.ExpandWidth(false));
-            if(GUILayout.Toggle(Main.settings.DefaultPointBuy25, " 25", GUILayout.ExpandWidth(false))) Main.settings.DefaultPointBuy25 = true;
-            if(GUILayout.Toggle(!Main.settings.DefaultPointBuy25, " 20", GUILayout.ExpandWidth(false))) Main.settings.DefaultPointBuy25 = false;
-            GUILayout.EndHorizontal();
-            Main.settings.DisableRemovePlanOnChange = GUILayout.Toggle(Main.settings.DisableRemovePlanOnChange, " Disable Removing level plan on change");
-            Main.settings.AutoSelectSkills = GUILayout.Toggle(Main.settings.AutoSelectSkills, " Auto select skills");
-            Main.settings.ShowDollRoom = GUILayout.Toggle(Main.settings.ShowDollRoom, " Show DollRoom");
-        }
-        static void OnDefaultGUI()
-        {
-            if (CurrentLevelPlan == null)
-            {
-                GUILayout.Label("No plan open");
-            }
-            else
-            {
-                GUILayout.BeginHorizontal();
-                if (CurrentLevelPlan != null)
-                {
-                    CurrentLevelPlan.Name = GUILayout.TextField(CurrentLevelPlan.Name);
-                    if (GUILayout.Button("Select Unit"))
-                    {
-                        IsSelectingUnit = !IsSelectingUnit;
-                    }
-                    var applyButtonStyle = CurrentLevelPlan.unit == null ? Util.DisabledButtonStyle : GUI.skin.button;
-                    if (GUILayout.Button("Apply Plan", applyButtonStyle))
-                    {
-                        if (CurrentLevelPlan.unit != null)
-                        {
-                            CurrentLevelPlan.ApplyLevelPlan(CurrentLevelPlan.unit);
-                            CurrentLevelPlan.IsApplied = true;
-                        }
-                    }
-                    if (GUILayout.Button("Save Plan"))
-                    {
-                        Util.SaveLevelingPlan(CurrentLevelPlan);
-                        CurrentLevelPlan.IsDirty = false;
-                    }
-                }
-                GUILayout.EndHorizontal();
-                if (IsSelectingUnit)
-                {
-                    foreach (var unit in Game.Instance.Player.PartyCharacters.Concat(Game.Instance.Player.RemoteCompanions))
-                    {
-                        if (GUILayout.Button(unit.Value.CharacterName))
-                        {
-                            CurrentLevelPlan.unit = unit.Value.Descriptor;
-                            CurrentLevelPlan.IsApplied = false;
-                            IsSelectingUnit = false;
-                        }
-                    }
-                }
-                GUILayout.BeginHorizontal();
-                GUILayout.Label(CurrentLevelPlan.unit == null ? "No unit selected" : $"Selected Unit: {CurrentLevelPlan.unit.CharacterName}");
-                if (CurrentLevelPlan.unit != null && !CurrentLevelPlan.IsApplied) GUILayout.Label("Level Plan has not been applied to unit");
-                if (CurrentLevelPlan.IsDirty) GUILayout.Label("Level Plan has not been saved");
-                GUILayout.EndHorizontal();
-                CurrentLevelPlan.ShowLevelPlan();
-            }
-        }
-        static void OnDebug()
-        {
-            var previewThread = Traverse.Create(typeof(LevelUpPreviewThread)).Field("s_Thread").GetValue<Thread>();
-            var previewSource = Traverse.Create(typeof(LevelUpPreviewThread)).Field("s_Source").GetValue<JToken>();
-            var controller = Game.Instance.UI.CharacterBuildController?.LevelUpController;
-            GUILayout.Label(string.Format("Controller State {0}, CBC.LUC {1}, AreEqual {2}, PreviewThread {3}, PreviewSource {4}",
-                CurrentLevelUpController != null,
-                Game.Instance.UI.CharacterBuildController?.LevelUpController != null,
-                Game.Instance.UI.CharacterBuildController?.LevelUpController == CurrentLevelUpController,
-                previewThread != null,
-                previewSource != null));
-            if (controller == null) return;
-            foreach(var action in controller.LevelUpActions)
-            {
-                GUILayout.Label(Util.MakeActionReadable(action));
-            }
-        }
-        public static void OnGUI()
-        {
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("New Level Plan"))
-            {
-                m_UIState = m_UIState == UIState.CreatingPlan ? UIState.Default : UIState.CreatingPlan;
-            }
-            if (GUILayout.Button("Manage Level Plans"))
-            {
-                LevelPlanFiles = null;
-                m_UIState = m_UIState == UIState.ManagingFiles ? UIState.Default : UIState.ManagingFiles;
-            }
-            if (GUILayout.Button("Settings"))
-            {
-                m_UIState = m_UIState == UIState.ManagingSettings ? UIState.Default : UIState.ManagingSettings;
-            }
-            if (GUILayout.Button("Debug"))
-            {
-                m_UIState = m_UIState == UIState.ManagingSettings ? UIState.Default : UIState.Debug;
-            }
-            GUILayout.EndHorizontal();
-            if (m_UIState == UIState.CreatingPlan)
-            {
-                OnCreatingPlan();
-                return;
-            }
-            if (m_UIState == UIState.ManagingFiles)
-            {
-                OnManagingFiles();
-                return;
-            }
-            if (m_UIState == UIState.ManagingSettings)
-            {
-                OnManagingSettings();
-                return;
-            }
-            if (m_UIState == UIState.Debug)
-            {
-                OnDebug();
-                return;
-            }
-            OnDefaultGUI();
         }
     }
 }

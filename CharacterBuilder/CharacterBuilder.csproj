@@ -93,6 +93,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CharacterBuilderGUI.cs" />
+    <Compile Include="CodeTimer.cs" />
     <Compile Include="HideDisableLevelPlanDialogPatches.cs" />
     <Compile Include="LevelPlanHolder.cs" />
     <Compile Include="LevelPlanManager.cs" />

@@ -2,14 +2,17 @@
 using System.Collections.Generic;
 using System.Linq;
 using Kingmaker;
+using Kingmaker.Assets.UI.LevelUp;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes;
 using Kingmaker.Blueprints.Root;
 using Kingmaker.EntitySystem.Entities;
+using Kingmaker.EntitySystem.Persistence.JsonUtility;
 using Kingmaker.UnitLogic;
 using Kingmaker.UnitLogic.Class.LevelUp;
 using Kingmaker.UnitLogic.Parts;
 using Kingmaker.Utility;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace CharacterBuilder
@@ -41,77 +44,90 @@ namespace CharacterBuilder
          */
         public LevelPlanHolder(BlueprintCharacterClass defaultClass)
         {
-            var defaultBuild = defaultClass.DefaultBuild;
-            var addClassLevels = defaultBuild.GetComponent<AddClassLevels>();
-            var targetPoints = Main.settings.DefaultPointBuy25 ? 25 : 20;
-            var stats = defaultBuild.GetComponents<StatsDistributionPreset>().FirstOrDefault(sd => sd.TargetPoints == targetPoints);
+            using (new CodeTimer("Create default build"))
+            {
+                var defaultBuild = defaultClass.DefaultBuild;
+                var addClassLevels = defaultBuild.GetComponent<AddClassLevels>();
+                var targetPoints = Main.settings.DefaultPointBuy25 ? 25 : 20;
+                var stats = defaultBuild.GetComponents<StatsDistributionPreset>().FirstOrDefault(sd => sd.TargetPoints == targetPoints);
 
-
-            var unit = Main.settings.DefaultPointBuy25 ?
-                Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.DefaultPlayerCharacter) :
-                Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.CustomCompanion);
-            var levelUpController = LevelUpController.Start(unit.Descriptor, instantCommit:true, mode: LevelUpState.CharBuildMode.CharGen);
-            if (!levelUpController.SelectPortrait(Game.Instance.BlueprintRoot.CharGen.Portraits[0]))
-            {
-                throw new Exception("Error selecting portrait");
-            }
-            if (!levelUpController.SelectGender(Gender.Male))
-            {
-                throw new Exception("Error selecting gender");
-            }
-            if (!levelUpController.SelectRace(Game.Instance.BlueprintRoot.Progression.CharacterRaces[0]))
-            {
-                throw new Exception("Error selecting race");
-            }
-            if (levelUpController.State.CanSelectRaceStat)
-            {
-                if (!levelUpController.SelectRaceStat(addClassLevels.RaceStat))
+                UnitEntityData unit = Main.settings.DefaultPointBuy25 ?
+                    Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.DefaultPlayerCharacter) :
+                    Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.CustomCompanion);
+                var levelUpController = LevelUpController.Start(unit.Descriptor,
+                    instantCommit: false,
+                    mode: LevelUpState.CharBuildMode.CharGen);
+                if (!levelUpController.SelectPortrait(Game.Instance.BlueprintRoot.CharGen.Portraits[0]))
                 {
-                    throw new Exception("Error selecting race stat");
+                    throw new Exception("Error selecting portrait");
+                }
+                if (!levelUpController.SelectGender(Gender.Male))
+                {
+                    throw new Exception("Error selecting gender");
+                }
+                if (!levelUpController.SelectRace(Game.Instance.BlueprintRoot.Progression.CharacterRaces[0]))
+                {
+                    throw new Exception("Error selecting race");
+                }
+                if (levelUpController.State.CanSelectRaceStat)
+                {
+                    if (!levelUpController.SelectRaceStat(addClassLevels.RaceStat))
+                    {
+                        throw new Exception("Error selecting race stat");
+                    }
+                }
+                levelUpController.ApplyStatsDistributionPreset(stats);
+                if (!levelUpController.SelectClass(defaultClass))
+                {
+                    throw new Exception("Error selecting class");
+                }
+                {
+                    var race = levelUpController.Preview.Progression.Race;
+                    if (race == null) Main.Error($"Leveup race is null");
+                    else Main.Log($"Levelup race is {race.name}");
+                }
+                if (!levelUpController.SelectDefaultClassBuild())
+                {
+                    if (!levelUpController.HasNextLevelPlan) Main.Error("LevelUpController.HasNextLevelPlan is false");
+                    if (!levelUpController.State.IsFirstLevel) Main.Error("LevelUpController.IsFirstLevel is false");
+                    if (levelUpController.State.SelectedClass == null) Main.Error("LevelUpController.State.SelectedClass is null");
+                    if (levelUpController.State.SelectedClass.DefaultBuild == null) Main.Error("LevelUpController.State.SelectedClass.DefaultBuild is null");
+                    if (levelUpController.Preview.Progression.Race == null) Main.Error("LevelUpController.Preview.Progression.Race is null");
+                    if (levelUpController.State.CanSelectRace) Main.Error("LevelUpController.State.CanSelectRace is true");
+                    if (levelUpController.Preview.Progression.Race == null)
+                    {
+                        Main.Error("PreviewRace is null");
+                    }
+                    using (new DefaultBuildData(levelUpController.Preview.Progression.Race))
+                    {
+                        levelUpController.Unit.Ensure<LevelUpPlanUnitHolder>();
+                        levelUpController.Unit.Progression.DropLevelPlans();
+                        levelUpController.Unit.AddFact(defaultBuild, null, null);
+                        LevelPlanData levelPlan = levelUpController.Unit.Progression.GetLevelPlan(levelUpController.State.NextLevel);
+                        if (levelPlan == null) Main.Error("levelUpController.Unit.Progression.LevelPlan is null");
+                        throw new Exception("Error selecting default build");
+                    }
+                }
+                if (!levelUpController.SelectAlignment(Kingmaker.Enums.Alignment.TrueNeutral))
+                {
+                    throw new Exception("Error selecting alignment");
+                }
+                if (!levelUpController.SelectName($"Default {defaultClass.Name} Build"))
+                {
+                    throw new Exception("Error selecting name");
+                }
+                LevelPlanData[0] = new LevelPlanData(1, levelUpController.LevelUpActions.ToArray());
+                for (int i = 1; i < 20; i++)
+                {
+                    var plan = unit.Descriptor.Progression.GetLevelPlan(i + 1);
+                    LevelPlanData[i] = plan;
                 }
             }
-            levelUpController.ApplyStatsDistributionPreset(stats);
-            if (!levelUpController.SelectClass(defaultClass))
+            using (new CodeTimer("Verify default build"))
             {
-                throw new Exception("Error selecting class");
+                //LevelPlanData[0] = levelUpController.GetPlan();
+                VerifyLevelPlan();
             }
-            {
-                var race = levelUpController.Preview.Progression.Race;
-                if (race == null) Main.Error($"Leveup race is null");
-                else Main.Log($"Levelup race is {race.name}");
-            }
-            if (!levelUpController.SelectDefaultClassBuild())
-            {
-                if (!levelUpController.HasNextLevelPlan) Main.Error("LevelUpController.HasNextLevelPlan is false");
-                if (!levelUpController.State.IsFirstLevel) Main.Error("LevelUpController.IsFirstLevel is false");
-                if (levelUpController.State.SelectedClass == null) Main.Error("LevelUpController.State.SelectedClass is null");
-                if (levelUpController.State.SelectedClass.DefaultBuild == null) Main.Error("LevelUpController.State.SelectedClass.DefaultBuild is null");
-                if (levelUpController.Preview.Progression.Race == null) Main.Error("LevelUpController.Preview.Progression.Race is null");
-                if (levelUpController.State.CanSelectRace) Main.Error("LevelUpController.State.CanSelectRace is true");
-
-                levelUpController.Unit.Ensure<LevelUpPlanUnitHolder>();
-                levelUpController.Unit.Progression.DropLevelPlans();
-                levelUpController.Unit.AddFact(defaultBuild, null, null);
-                LevelPlanData levelPlan = levelUpController.Unit.Progression.GetLevelPlan(levelUpController.State.NextLevel);
-                if(levelPlan == null) Main.Error("levelUpController.Unit.Progression.LevelPlan is null");
-                throw new Exception("Error selecting default build");
-            }
-            if (!levelUpController.SelectAlignment(Kingmaker.Enums.Alignment.TrueNeutral))
-            {
-                throw new Exception("Error selecting alignment");
-            }
-            if(!levelUpController.SelectName($"Default {defaultClass.Name} Build"))
-            {
-                throw new Exception("Error selecting name");
-            }
-            LevelPlanData[0] = new LevelPlanData(1, levelUpController.LevelUpActions.ToArray());
-            for (int i = 1; i < 20; i++)
-            {
-                var plan = unit.Descriptor.Progression.GetLevelPlan(i + 1);
-                LevelPlanData[i] = plan;
-            }
-            //LevelPlanData[0] = levelUpController.GetPlan();
-            VerifyLevelPlan();
         }
         public LevelPlanHolder(UnitDescriptor descriptor)
         {
@@ -165,15 +181,23 @@ namespace CharacterBuilder
         */
         void VerifyLevelPlan()
         {
-            var unitEntityData = new UnitEntityData(GameConsts.DefaultUnitUniqueId, false, Game.Instance.BlueprintRoot.SystemMechanics.DefaultUnit);
-            ApplyLevelPlan(unitEntityData.Descriptor);
+            var unitEntityData = Main.settings.DefaultPointBuy25 ?
+                Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.DefaultPlayerCharacter) :
+                Game.Instance.CreateUnitVacuum(BlueprintRoot.Instance.CustomCompanion);
             for (int i = 0; i < 20; i++)
             {
+                if (i > 0)
+                {
+                    ValidLevels[i] = false;
+                    Message[i] = "TODO";
+                    continue;
+                }
                 var levelUpLog = new List<string>();
                 var mode = i == 0 ? LevelUpState.CharBuildMode.CharGen : LevelUpState.CharBuildMode.LevelUp;
-                var levelUpController = LevelUpController.Start(unitEntityData.Descriptor, true, mode: mode);
+                var levelUpController = LevelUpController.Start(unitEntityData.Descriptor, instantCommit: false, mode: mode);
                 if (LevelPlanData[i] == null) throw new Exception($"Level plan is null for index {i}");
                 if (LevelPlanData[i].Actions == null) throw new Exception($"Actions not set for level plan {i}, level {LevelPlanData[i].Level}");
+
                 foreach (var action in LevelPlanData[i].Actions)
                 {
                     if(!action.Check(levelUpController.State, unitEntityData.Descriptor))
@@ -182,6 +206,7 @@ namespace CharacterBuilder
                     }
                     else
                     {
+                        levelUpController.LevelUpActions.Add(action);
                         action.Apply(levelUpController.State, unitEntityData.Descriptor);
                         levelUpController.State.OnApplyAction();
                     }

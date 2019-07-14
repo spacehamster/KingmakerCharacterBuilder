@@ -85,23 +85,21 @@ namespace CharacterBuilder
             try
             {
                 if (!enabled) return;
-                if(GUILayout.Button("Test Levelup"))
+                if(GUILayout.Button("Test Default Level Plan"))
                 {
-                    Test.TestLevelup();
+                    Test.TestDefaultLevelPlan();
                 }
-                if (GUILayout.Button("StartChargen(true)"))
+                if (GUILayout.Button("Test Default Level Plan2"))
                 {
-                    Game.NewGamePreset = BlueprintRoot.Instance.NewGamePreset;
-                    Traverse.Create(Game.Instance.UI.MainMenu).Field("m_ChargenUnit").SetValue(
-                        Traverse.Create(Game.Instance.UI.MainMenu).Field("m_DefaultChargenUnit").GetValue());
-                    Game.Instance.UI.MainMenu.StartChargen(true);
+                    Test.TestDefaultLevelPlan2();
                 }
-                if (GUILayout.Button("StartChargen(false)"))
+                if (GUILayout.Button("Test Default Level Plan3"))
                 {
-                    Game.NewGamePreset = BlueprintRoot.Instance.NewGamePreset;
-                    Traverse.Create(Game.Instance.UI.MainMenu).Field("m_ChargenUnit").SetValue(
-                        Traverse.Create(Game.Instance.UI.MainMenu).Field("m_DefaultChargenUnit").GetValue());
-                    Game.Instance.UI.MainMenu.StartChargen(false);
+                    Test.TestDefaultLevelPlan3();
+                }
+                if (GUILayout.Button("Test Leveling Up"))
+                {
+                    Test.TestLevelUp();
                 }
                 CharacterBuilderGUI.OnGUI();
             } catch(Exception ex)

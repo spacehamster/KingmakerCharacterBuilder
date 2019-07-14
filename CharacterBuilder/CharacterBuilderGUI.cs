@@ -131,27 +131,24 @@ namespace CharacterBuilder
             else
             {
                 GUILayout.BeginHorizontal();
-                if (CurrentLevelPlan != null)
+                CurrentLevelPlan.Name = GUILayout.TextField(CurrentLevelPlan.Name);
+                if (GUILayout.Button("Select Unit"))
                 {
-                    CurrentLevelPlan.Name = GUILayout.TextField(CurrentLevelPlan.Name);
-                    if (GUILayout.Button("Select Unit"))
+                    IsSelectingUnit = !IsSelectingUnit;
+                }
+                var applyButtonStyle = CurrentLevelPlan.unit == null ? Util.DisabledButtonStyle : GUI.skin.button;
+                if (GUILayout.Button("Apply Plan", applyButtonStyle))
+                {
+                    if (CurrentLevelPlan.unit != null)
                     {
-                        IsSelectingUnit = !IsSelectingUnit;
+                        CurrentLevelPlan.ApplyLevelPlan(CurrentLevelPlan.unit);
+                        CurrentLevelPlan.IsApplied = true;
                     }
-                    var applyButtonStyle = CurrentLevelPlan.unit == null ? Util.DisabledButtonStyle : GUI.skin.button;
-                    if (GUILayout.Button("Apply Plan", applyButtonStyle))
-                    {
-                        if (CurrentLevelPlan.unit != null)
-                        {
-                            CurrentLevelPlan.ApplyLevelPlan(CurrentLevelPlan.unit);
-                            CurrentLevelPlan.IsApplied = true;
-                        }
-                    }
-                    if (GUILayout.Button("Save Plan"))
-                    {
-                        Util.SaveLevelingPlan(CurrentLevelPlan);
-                        CurrentLevelPlan.IsDirty = false;
-                    }
+                }
+                if (GUILayout.Button("Save Plan"))
+                {
+                    Util.SaveLevelingPlan(CurrentLevelPlan);
+                    CurrentLevelPlan.IsDirty = false;
                 }
                 GUILayout.EndHorizontal();
                 if (IsSelectingUnit)
@@ -176,6 +173,20 @@ namespace CharacterBuilder
         }
         static void OnDebug()
         {
+            if(CurrentLevelPlan != null && GUILayout.Button("Log Plan"))
+            {
+                using (var sw = new StreamWriter("plan.txt"))
+                {
+                    foreach (var data in CurrentLevelPlan.LevelPlanData)
+                    {
+                        sw.WriteLine($"Level {data.Level} Actions {data.Actions.Length}");
+                        foreach (var action in data.Actions)
+                        {
+                            sw.WriteLine($"  {Util.MakeActionReadable(action)}");
+                        }
+                    }
+                }
+            }
             var previewThread = Traverse.Create(typeof(LevelUpPreviewThread)).Field("s_Thread").GetValue<Thread>();
             var previewSource = Traverse.Create(typeof(LevelUpPreviewThread)).Field("s_Source").GetValue<JToken>();
             void DisplayUnit(UnitDescriptor unit)
